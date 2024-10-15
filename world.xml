@@ -5,7 +5,8 @@
     <headlight active="1" />
     <rgba haze="0.15 0.25 0.35 1" />
   </visual>
-  <option timestep="0.001" integrator="Euler" iterations="50" solver="Newton" impratio="5" noslip_iterations="5" tolerance="1e-8" cone="elliptic">
+  <!-- <option timestep="0.001" integrator="Euler" iterations="50" solver="Newton" impratio="5" noslip_iterations="5" tolerance="1e-8" cone="elliptic"> -->
+  <option timestep="0.001" integrator="RK4" iterations="10" solver="Newton" impratio="5" noslip_iterations="2" tolerance="1e-6" cone="elliptic">
     <flag actuation="enable" gravity="enable" warmstart="enable" />
   </option>
   <asset>
@@ -15,11 +16,11 @@
   </asset>
   <include file="panda.xml" />
   <worldbody>
-    <body>
-      <geom type="box" size=".03 .03 .03" pos=".3 0 .03" condim="6" />
+    <body name="box">
+      <geom type="box" size=".05 .05 .05" pos="0.8 0.25 0.1" condim="6" />
       <joint type="free" />
     </body>
-    <camera name="cam" mode="targetbody" pos="1 1 1" target="panda_hand" />
+    <camera name="cam" mode="targetbody" pos="1.5 1.5 1.0" target="panda_hand" />
     <light directional="true" diffuse=".2 .2 .2" specular="0 0 0" pos="0 1 5" dir="0 -1 -1" castshadow="false"/>
     <light directional="false" diffuse=".8 .8 .8" specular="0.3 0.3 0.3" pos="0 -1 4" dir="0 0 -1" />
     <light directional="true" diffuse="0 0 0" specular=".7 .7 .7" pos="0 3 3" dir="0 -3 -3" />

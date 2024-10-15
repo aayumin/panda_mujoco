@@ -3,6 +3,9 @@
 import time
 from threading import Thread
 
+import os
+os.environ["MUJOCO_GL"] = "glfw"  # or "osmesa" if needed
+
 import glfw
 import mujoco
 import numpy as np
@@ -10,10 +13,12 @@ import numpy as np
 
 class Demo:
 
-    qpos0 = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
+    # qpos0 = [0, -0.785, 0, -2.356, 0, 1.571, 0.785]
+    qpos0 = [0, 0, 0, -0.785, 0, 1.571, 0.785]
+    
     K = [600.0, 600.0, 600.0, 30.0, 30.0, 30.0]
     height, width = 480, 640  # Rendering window resolution.
-    fps = 30  # Rendering framerate.
+    fps = 60  # Rendering framerate.
 
     def __init__(self) -> None:
         self.model = mujoco.MjModel.from_xml_path("world.xml")
@@ -27,6 +32,12 @@ class Demo:
         for i in range(1, 8):
             self.data.joint(f"panda_joint{i}").qpos = self.qpos0[i - 1]
         mujoco.mj_forward(self.model, self.data)
+        
+        
+        
+        self.id_to_body_name = {}
+        for b_idx in range(self.model.nbody):
+            self.id_to_body_name[b_idx] = self.model.body(b_idx).name
 
     def gripper(self, open=True):
         self.data.actuator("pos_panda_finger_joint1").ctrl = (0.04, 0)[not open]
@@ -60,6 +71,62 @@ class Demo:
             self.data.actuator(f"panda_joint{i}").ctrl -= (
                 J[:, dofadr].T @ np.diag(2 * np.sqrt(self.K)) @ v
             )
+    
+      
+    def check_collision(self, data, obj_name1 = None, obj_name2 = None):
+        num_contacts = data.ncon
+        # print(f"\nTime: {round(data.time, 3)}, # of contacts: {data.ncon}")
+        for i in range(num_contacts):
+            ctt = data.contact[i]
+            ctt_obj_1 = self.id_to_body_name[ctt.geom1]
+            ctt_obj_2 = self.id_to_body_name[ctt.geom2]
+            
+            
+            if obj_name1 is not None and obj_name2 is None and obj_name1 in [ctt_obj_1, ctt_obj_2]:
+                print(f"\t\tcontact => ({ctt_obj_1}, {ctt_obj_2})  : ", [round(v,2) for v in ctt.pos], [round(v,2) for v in ctt.frame[:3]])
+                return True
+            
+            if obj_name1 is not None and obj_name2 is not None and obj_name1 in [ctt_obj_1, ctt_obj_2] and obj_name2 in [ctt_obj_1, ctt_obj_2]:
+                print(f"\t\tcontact => ({ctt_obj_1}, {ctt_obj_2})  : ", [round(v,2) for v in ctt.pos], [round(v,2) for v in ctt.frame[:3]])
+                return True
+            
+        return False
+
+
+ 
+    def hit(self):
+        xpos0 = self.data.body("panda_hand").xpos.copy()
+        xpos_d = xpos0
+        xquat0 = self.data.body("panda_hand").xquat.copy()
+        self.gripper(False)
+        
+        target_x = list(np.linspace(0.7, 0.43, 2000))
+        target_y = list(np.linspace(0, 0, 2000))
+        target_z = list(np.linspace(-1, 0.96, 2000))
+        while self.run:
+            if len(target_x) == 0:
+                break
+            xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
+            self.control(xpos_d, xquat0)
+            mujoco.mj_step(self.model, self.data)
+        
+        
+        target_x = list(np.linspace(0.9, 0.7, 500))
+        target_y = list(np.linspace(1.2, 0, 500))
+        target_z = list(np.linspace(-1, -1, 500))
+        while self.run:
+            if len(target_x) == 0:
+                break
+            xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
+            self.control(xpos_d, xquat0)
+            mujoco.mj_step(self.model, self.data)
+            self.check_collision(self.data, "world")
+            # time.sleep(1e-6)
+            
+        for _ in range(10000):
+            self.control(xpos_d, xquat0)
+            mujoco.mj_step(self.model, self.data)
+        
 
     def step(self) -> None:
         xpos0 = self.data.body("panda_hand").xpos.copy()
@@ -82,7 +149,7 @@ class Demo:
                     xpos_d = xpos0 + [0, 0, up.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            time.sleep(1e-3)
+            # time.sleep(1e-3)
 
     def render(self) -> None:
         glfw.init()
@@ -116,7 +183,7 @@ class Demo:
         glfw.terminate()
 
     def start(self) -> None:
-        step_thread = Thread(target=self.step)
+        step_thread = Thread(target=self.hit)
         step_thread.start()
         self.render()
 
