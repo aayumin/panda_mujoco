@@ -109,6 +109,7 @@ class Demo:
             xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
+            self.check_collision(self.data, "cup")
         
         
         target_x = list(np.linspace(0.9, 0.7, 500))
@@ -120,7 +121,8 @@ class Demo:
             xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            self.check_collision(self.data, "world")
+            # self.check_collision(self.data, "world")
+            self.check_collision(self.data, "cup")
             # time.sleep(1e-6)
             
         for _ in range(10000):

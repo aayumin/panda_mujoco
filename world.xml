@@ -1,4 +1,5 @@
 <mujoco>
+  <size nconmax="50" njmax="300" nstack="50000"/>
   <compiler angle="radian" meshdir="./mesh" texturedir="./texture" />
   <visual>
     <quality shadowsize="8192" offsamples="8" numslices="64" numstacks="64" />
@@ -15,11 +16,41 @@
     <material name="plane" reflectance="0.3" texture="plane" texrepeat="1 1" texuniform="true" />
   </asset>
   <include file="panda.xml" />
+  <!-- <include file="obj.xml" /> -->
   <worldbody>
-    <body name="box">
-      <geom type="box" size=".05 .05 .05" pos="0.8 0.25 0.1" condim="6" />
+    <!-- <body name="cup"  pos="0.8 0.25 0.1" >
+      <geom type="box" size=".05 .05 .05" contype="1" density="100" condim="3" />
       <joint type="free" />
-    </body>
+    </body> -->
+
+
+        <light directional="false" diffuse=".2 .2 .2" specular="0 0 0" pos="0 0 5" dir="0 0 -1" castshadow="false"/>
+        <light mode="targetbodycom" target="cup" directional="false" diffuse=".8 .8 .8" specular="0.3 0.3 0.3" pos="0 0 4.0" dir="0 0 -1"/>
+
+
+
+        <body name="cup" pos="0.8 0.25 0.5">
+            <freejoint name="cup_root"/>
+            <geom name="cup" type="cylinder" size="0.06 0.14" rgba="0.9 0.1 0.1 1" density="100"/>
+            <body name="cup_collision1">
+              <geom type="sphere" size="0.05" pos="0 0 -0.04" contype="1" conaffinity="1"/>\
+            </body>  
+            <body name="cup_collision2">
+              <geom type="sphere" size="0.05" pos="0 0 0" contype="1" conaffinity="1"/>
+            </body>  
+            <body name="cup_collision3">
+              <geom type="sphere" size="0.05" pos="0 0 0.04" contype="1" conaffinity="1"/>
+            </body>  
+            <body name="handle" pos=".04 0.04 0" quat="0.5 0.0 0 0.5" >
+                <geom name="handle" type="box"  size="0.02 0.02 0.02" rgba="0.9 0.1 0.1 1"/>
+            </body>
+        </body>
+
+        
+
+
+    
+
     <camera name="cam" mode="targetbody" pos="1.5 1.5 1.0" target="panda_hand" />
     <light directional="true" diffuse=".2 .2 .2" specular="0 0 0" pos="0 1 5" dir="0 -1 -1" castshadow="false"/>
     <light directional="false" diffuse=".8 .8 .8" specular="0.3 0.3 0.3" pos="0 -1 4" dir="0 0 -1" />
