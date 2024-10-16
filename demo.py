@@ -28,7 +28,7 @@ class Demo:
         self.cam.fixedcamid = 0
         self.scene = mujoco.MjvScene(self.model, maxgeom=10000)
         self.run = True
-        self.gripper(True)
+        # self.gripper(True)
         for i in range(1, 8):
             self.data.joint(f"panda_joint{i}").qpos = self.qpos0[i - 1]
         mujoco.mj_forward(self.model, self.data)
@@ -36,8 +36,10 @@ class Demo:
         
         
         self.id_to_body_name = {}
+        self.name_to_body_id = {}
         for b_idx in range(self.model.nbody):
             self.id_to_body_name[b_idx] = self.model.body(b_idx).name
+            self.name_to_body_id[self.model.body(b_idx).name] = b_idx
 
     def gripper(self, open=True):
         self.data.actuator("pos_panda_finger_joint1").ctrl = (0.04, 0)[not open]
@@ -78,8 +80,13 @@ class Demo:
         # print(f"\nTime: {round(data.time, 3)}, # of contacts: {data.ncon}")
         for i in range(num_contacts):
             ctt = data.contact[i]
-            ctt_obj_1 = self.id_to_body_name[ctt.geom1]
-            ctt_obj_2 = self.id_to_body_name[ctt.geom2]
+            # ctt_obj_1 = self.id_to_body_name[ctt.geom1]
+            # ctt_obj_2 = self.id_to_body_name[ctt.geom2]
+            
+            ctt_obj_1 = data.geom(ctt.geom1).name
+            ctt_obj_2 = data.geom(ctt.geom2).name
+            
+            # print(ctt.geom1, ctt.geom2, self.data.body(ctt.geom1).xpos, self.data.body(ctt.geom2).xpos)
             
             
             if obj_name1 is not None and obj_name2 is None and obj_name1 in [ctt_obj_1, ctt_obj_2]:
@@ -98,8 +105,9 @@ class Demo:
         xpos0 = self.data.body("panda_hand").xpos.copy()
         xpos_d = xpos0
         xquat0 = self.data.body("panda_hand").xquat.copy()
-        self.gripper(False)
+        # self.gripper(False)
         
+        input("press any key")
         target_x = list(np.linspace(0.7, 0.43, 2000))
         target_y = list(np.linspace(0, 0, 2000))
         target_z = list(np.linspace(-1, 0.96, 2000))
@@ -109,7 +117,8 @@ class Demo:
             xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            self.check_collision(self.data, "cup")
+            self.check_collision(self.data, "cup", "floor")
+        
         
         
         target_x = list(np.linspace(0.9, 0.7, 500))
@@ -122,12 +131,17 @@ class Demo:
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
             # self.check_collision(self.data, "world")
-            self.check_collision(self.data, "cup")
+            self.check_collision(self.data, "cup", "floor")
+            
+            
             # time.sleep(1e-6)
             
-        for _ in range(10000):
+        for _ in range(1000):
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
+            self.check_collision(self.data, "cup", "floor")
+            # print(self.data.body("panda_hand").xpos, self.data.body("panda_hand").xquat)
+            # print(self.data.body("cup").xpos, self.data.body("cup").xquat)
         
 
     def step(self) -> None:

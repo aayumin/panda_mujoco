@@ -22,10 +22,10 @@
     <motor ctrllimited="true" ctrlrange="-12 12" forcelimited="true" forcerange="-12 12" joint="panda_joint5" name="panda_joint5" />
     <motor ctrllimited="true" ctrlrange="-12 12" forcelimited="true" forcerange="-12 12" joint="panda_joint6" name="panda_joint6" />
     <motor ctrllimited="true" ctrlrange="-12 12" forcelimited="true" forcerange="-12 12" joint="panda_joint7" name="panda_joint7" />
-    <position forcelimited="true" forcerange="-120 120" ctrllimited="true" ctrlrange="0 0.04" joint="panda_finger_joint1" kp="100" name="pos_panda_finger_joint1" user="1"/>
-    <position forcelimited="true" forcerange="-120 120" ctrllimited="true" ctrlrange="0 0.04" joint="panda_finger_joint2" kp="100" name="pos_panda_finger_joint2" user="1"/>
-    <velocity forcelimited="true" forcerange="-120 120" joint="panda_finger_joint1" kv="10" name="vel_panda_finger_joint1" user="1"/>
-    <velocity forcelimited="true" forcerange="-120 120" joint="panda_finger_joint2" kv="10" name="vel_panda_finger_joint2" user="1"/>
+    <!-- <position forcelimited="true" forcerange="-120 120" ctrllimited="true" ctrlrange="0 0.04" joint="panda_finger_joint1" kp="100" name="pos_panda_finger_joint1" user="1"/>
+    <position forcelimited="true" forcerange="-120 120" ctrllimited="true" ctrlrange="0 0.04" joint="panda_finger_joint2" kp="100" name="pos_panda_finger_joint2" user="1"/> -->
+    <!-- <velocity forcelimited="true" forcerange="-120 120" joint="panda_finger_joint1" kv="10" name="vel_panda_finger_joint1" user="1"/>
+    <velocity forcelimited="true" forcerange="-120 120" joint="panda_finger_joint2" kv="10" name="vel_panda_finger_joint2" user="1"/> -->
   </actuator>
   <worldbody>
     <body name="panda_link0">
@@ -62,17 +62,19 @@
                     <body name="panda_link8" pos="0 0 0.107">
                       <body name="panda_hand" euler="0 0 -0.785398163397">
                         <inertial pos="-1e-02 0 3e-02" mass="7.3e-01" diaginertia="1e-03 2.5e-03 1.7e-03" />
-                        <geom type="mesh" material="panda" mesh="hand" contype="1" conaffinity="1"  />
-                        <body name="panda_leftfinger" pos="0 0 0.0584">
+                        <geom name="panda_hand" type="mesh" material="panda" mesh="hand" contype="1" conaffinity="1"  />
+                        <!-- <body name="panda_leftfinger" pos="-0.01 0 0.07">
                           <inertial pos="0 0 0" mass="1.5e-02" diaginertia="2.3749e-06 2.3749e-06 7.5e-07"/>
-                          <joint name="panda_finger_joint1" pos="0 0 0" axis="0 1 0" type="slide" limited="true" range="0 0.04" />
+                          <joint name="panda_finger_joint1" pos="-0.02 0.05 0" axis="0 1 0" type="slide" limited="true" range="0 0.04" />
                           <geom type="mesh" material="panda" mesh="finger" contype="1"/>
+                          <geom type="box" size="0.02 0.02 0.02" rgba = "1 0 0 1" contype="1"/>
                         </body>
-                        <body name="panda_rightfinger" pos="0 0 0.0584" euler="0 0 3.1415">
+                        <body name="panda_rightfinger" pos="0.02 0.05 0.07" euler="0 0 3.1415">
                           <inertial pos="0 0 0" mass="1.5e-02" diaginertia="2.3749e-06 2.3749e-06 7.5e-07"/>
                           <joint name="panda_finger_joint2" pos="0 0 0" axis="0 1 0" type="slide" limited="true" range="0 0.04" />
-                          <geom type="mesh" material="panda" mesh="finger" contype="1" condim="1" />
-                        </body>
+                          <geom type="mesh" material="panda" mesh="finger" contype="1"/>
+                          <geom type="box" size="0.02 0.02 0.02" rgba = "1 0 0 1" contype="1"/>
+                        </body> -->
                       </body>
                     </body>
                   </body>
