@@ -1,8 +1,10 @@
 """Demonstrates the Franka Emika Robot System model for MuJoCo."""
 
 import time
+import threading
 from threading import Thread
 
+from glob import glob
 import os
 os.environ["MUJOCO_GL"] = "glfw"  # or "osmesa" if needed
 
@@ -10,6 +12,8 @@ import glfw
 import mujoco
 import numpy as np
 
+start_flag = False
+lock = threading.Lock()
 
 class Demo:
 
@@ -76,28 +80,26 @@ class Demo:
     
       
     def check_collision(self, data, obj_name1 = None, obj_name2 = None):
-        num_contacts = data.ncon
-        # print(f"\nTime: {round(data.time, 3)}, # of contacts: {data.ncon}")
-        for i in range(num_contacts):
-            ctt = data.contact[i]
-            # ctt_obj_1 = self.id_to_body_name[ctt.geom1]
-            # ctt_obj_2 = self.id_to_body_name[ctt.geom2]
-            
-            ctt_obj_1 = data.geom(ctt.geom1).name
-            ctt_obj_2 = data.geom(ctt.geom2).name
-            
-            # print(ctt.geom1, ctt.geom2, self.data.body(ctt.geom1).xpos, self.data.body(ctt.geom2).xpos)
-            
-            
-            if obj_name1 is not None and obj_name2 is None and obj_name1 in [ctt_obj_1, ctt_obj_2]:
-                print(f"\t\tcontact => ({ctt_obj_1}, {ctt_obj_2})  : ", [round(v,2) for v in ctt.pos], [round(v,2) for v in ctt.frame[:3]])
-                return True
-            
-            if obj_name1 is not None and obj_name2 is not None and obj_name1 in [ctt_obj_1, ctt_obj_2] and obj_name2 in [ctt_obj_1, ctt_obj_2]:
-                print(f"\t\tcontact => ({ctt_obj_1}, {ctt_obj_2})  : ", [round(v,2) for v in ctt.pos], [round(v,2) for v in ctt.frame[:3]])
-                return True
-            
-        return False
+        with lock:
+            num_contacts = data.ncon
+            # print(f"\nTime: {round(data.time, 3)}, # of contacts: {data.ncon}")
+            for i in range(num_contacts):
+                ctt = data.contact[i]
+                ctt_obj_1 = data.geom(ctt.geom1).name
+                ctt_obj_2 = data.geom(ctt.geom2).name
+                
+                contact_pt = [round(v,2) for v in ctt.pos]
+                contact_normal = [round(v,2) for v in ctt.frame[:3]]
+                
+                if obj_name1 is not None and obj_name2 is None and obj_name1 in [ctt_obj_1, ctt_obj_2]:
+                    # print(f"\t\tcontact => ({ctt_obj_1}, {ctt_obj_2})  : ", contact_pt, contact_normal)
+                    return contact_pt, contact_normal
+                
+                if obj_name1 is not None and obj_name2 is not None and obj_name1 in [ctt_obj_1, ctt_obj_2] and obj_name2 in [ctt_obj_1, ctt_obj_2]:
+                    # print(f"\t\tcontact => ({ctt_obj_1}, {ctt_obj_2})  : ", contact_pt, contact_normal)
+                    return contact_pt, contact_normal
+                
+            return None
 
     def add_noise_to_friction(self, body_name, noise_std=0.1):
         cur_geom = self.model.geom(body_name)
@@ -107,8 +109,17 @@ class Demo:
         print(f"original_friction: {original_friction}, noisy_friction: {noisy_friction}")
         cur_geom.friction = noisy_friction
         
+    def pick_sample_name(self):
+        files = os.listdir("./dataset")
+        recent_num = int(sorted(files)[-1].split("\\")[-1].split(".")[0].split("_")[0])
+        
+        return str(recent_num+1).zfill(4)
+        
  
     def hit(self):
+        
+        
+        sample_name = self.pick_sample_name()
         self.add_noise_to_friction("cup")
         
         xpos0 = self.data.body("panda_hand").xpos.copy()
@@ -116,7 +127,12 @@ class Demo:
         xquat0 = self.data.body("panda_hand").xquat.copy()
         # self.gripper(False)
         
-        input("press any key")
+        # input("press any key")
+        # global start_flag
+        # start_flag = True
+        
+        initial_collision_flag = False
+        
         target_x = list(np.linspace(0.7, 0.43, 2000))
         target_y = list(np.linspace(0, 0, 2000))
         target_z = list(np.linspace(-0.8, 0.96, 2000))
@@ -126,7 +142,12 @@ class Demo:
             xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            self.check_collision(self.data, "cup", "floor")
+            # self.check_collision(self.data, "cup", "floor")
+            result = self.check_collision(self.data, "cup", "panda_hand")
+            if result is not None:
+                initial_collision_flag = True
+                self.prepare_record(sample_name, result[0], result[1])
+                
         
         
         
@@ -139,41 +160,77 @@ class Demo:
             xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            # self.check_collision(self.data, "cup", "floor")
-            self.check_collision(self.data, "cup", "panda_hand")
             
+            
+            
+            
+            result = self.check_collision(self.data, "cup", "panda_hand")
+            if initial_collision_flag == False and result is not None:
+                initial_collision_flag = True
+                self.prepare_record(sample_name, result[0], result[1])
+            if initial_collision_flag and result is not None:
+                self.record_contact_point(sample_name, "hand", result[0], result[1])
+            
+            
+            result = self.check_collision(self.data, "cup", "floor")
+            if initial_collision_flag and result is not None:
+                self.record_contact_point(sample_name, "floor", result[0], result[1])
+                
             
             # time.sleep(1e-6)
             
         for _ in range(1000):
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            result = self.check_collision(self.data, "cup", "floor")
-            if result: break
+            # result = self.check_collision(self.data, "cup", "floor")
+            # if result is not None: break
         
 
-    def step(self) -> None:
-        xpos0 = self.data.body("panda_hand").xpos.copy()
-        xpos_d = xpos0
-        xquat0 = self.data.body("panda_hand").xquat.copy()
-        down = list(np.linspace(-0.45, 0, 2000))
-        up = list(np.linspace(0, -0.45, 2000))
-        state = "down"
-        while self.run:
-            if state == "down":
-                if len(down):
-                    xpos_d = xpos0 + [0, 0, down.pop()]
-                else:
-                    state = "grasp"
-            elif state == "grasp":
-                self.gripper(False)
-                state = "up"
-            elif state == "up":
-                if len(up):
-                    xpos_d = xpos0 + [0, 0, up.pop()]
-            self.control(xpos_d, xquat0)
-            mujoco.mj_step(self.model, self.data)
-            # time.sleep(1e-3)
+    def prepare_record(self, sample_name, init_pt, init_normal):
+        print("start record")
+        for obj_name in ["hand", "floor"]:
+            fname = sample_name + f"_{obj_name}"
+            with open(f"dataset/{fname}.csv", "w") as f:
+                f.write(",".join(map(str, init_pt)))
+                f.write(",")
+                f.write(",".join(map(str, init_normal)))
+                f.write("\n")
+        
+        
+    # def check_hit_point(self, sample_name, obj_name, contact_pt, contact_normal):
+    def record_contact_point(self, sample_name, obj_name, contact_pt, contact_normal):
+        # input("press any key")
+        
+        # max_iter = 1e8
+        # while max_iter:
+        #     max_iter -= 1
+        #     result = self.check_collision(self.data, "cup", "panda_hand")
+        #     if result is not None: break
+        
+        # if result is None: return
+        
+        fname = sample_name + f"_{obj_name}"
+        # contacts_with_hand = []
+        # contacts_with_floor = []
+        
+        
+        # sample_len = 100000 
+        # for _ in range(sample_len):
+        #     mujoco.mj_step(self.model, self.data)
+        #     result1 = self.check_collision(self.data, "cup", "panda_hand")
+        #     result2 = self.check_collision(self.data, "cup", "floor")
+        #     if result1 is not None: contacts_with_hand.append(result1)
+        #     if result2 is not None: contacts_with_floor.append(result1)
+            
+            
+        
+        # print(f"len_hand: {len(contacts_with_hand)}, len_floor: {len(contacts_with_floor)}")
+        with open(f"dataset/{fname}.csv", "a") as f:
+            f.write(",".join(map(str, contact_pt)))
+            f.write(",")
+            f.write(",".join(map(str, contact_normal)))
+            f.write("\n")
+            
 
     def render(self) -> None:
         glfw.init()
@@ -209,7 +266,14 @@ class Demo:
     def start(self) -> None:
         step_thread = Thread(target=self.hit)
         step_thread.start()
+        
+        
+        # check_thread = Thread(target=self.check_hit_point)
+        # check_thread.start()
+        
         self.render()
+        
+        
 
 
 if __name__ == "__main__":
