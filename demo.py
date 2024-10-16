@@ -99,9 +99,18 @@ class Demo:
             
         return False
 
-
+    def add_noise_to_friction(self, body_name, noise_std=0.1):
+        cur_geom = self.model.geom(body_name)
+        
+        original_friction = cur_geom.friction
+        noisy_friction = original_friction + np.random.normal(0, noise_std, size=original_friction.shape)
+        print(f"original_friction: {original_friction}, noisy_friction: {noisy_friction}")
+        cur_geom.friction = noisy_friction
+        
  
     def hit(self):
+        self.add_noise_to_friction("cup")
+        
         xpos0 = self.data.body("panda_hand").xpos.copy()
         xpos_d = xpos0
         xquat0 = self.data.body("panda_hand").xquat.copy()
@@ -110,7 +119,7 @@ class Demo:
         input("press any key")
         target_x = list(np.linspace(0.7, 0.43, 2000))
         target_y = list(np.linspace(0, 0, 2000))
-        target_z = list(np.linspace(-1, 0.96, 2000))
+        target_z = list(np.linspace(-0.8, 0.96, 2000))
         while self.run:
             if len(target_x) == 0:
                 break
@@ -123,15 +132,15 @@ class Demo:
         
         target_x = list(np.linspace(0.9, 0.7, 500))
         target_y = list(np.linspace(1.2, 0, 500))
-        target_z = list(np.linspace(-1, -1, 500))
+        target_z = list(np.linspace(-1, -0.8, 500))
         while self.run:
             if len(target_x) == 0:
                 break
             xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            # self.check_collision(self.data, "world")
-            self.check_collision(self.data, "cup", "floor")
+            # self.check_collision(self.data, "cup", "floor")
+            self.check_collision(self.data, "cup", "panda_hand")
             
             
             # time.sleep(1e-6)
@@ -139,9 +148,8 @@ class Demo:
         for _ in range(1000):
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            self.check_collision(self.data, "cup", "floor")
-            # print(self.data.body("panda_hand").xpos, self.data.body("panda_hand").xquat)
-            # print(self.data.body("cup").xpos, self.data.body("cup").xquat)
+            result = self.check_collision(self.data, "cup", "floor")
+            if result: break
         
 
     def step(self) -> None:
