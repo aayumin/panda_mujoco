@@ -109,6 +109,14 @@ class Demo:
         print(f"original_friction: {original_friction}, noisy_friction: {noisy_friction}")
         cur_geom.friction = noisy_friction
         
+    def add_noise_to_hand_motion(self, data, noise_std = 0.2): ## data = [X, X, X, ...] : free length list
+        data_arr = np.array(data)
+        noisy_data = data_arr + np.random.normal(0, noise_std, size=data_arr.shape)
+        return noisy_data.tolist()
+        
+        
+        
+        
     def pick_sample_name(self):
         files = os.listdir("./dataset")
         recent_num = int(sorted(files)[-1].split("\\")[-1].split(".")[0].split("_")[0])
@@ -120,7 +128,9 @@ class Demo:
         
         
         sample_name = self.pick_sample_name()
-        self.add_noise_to_friction("cup")
+        # self.add_noise_to_friction("cup")
+        self.add_noise_to_friction("cup", 0.5)
+        
         
         xpos0 = self.data.body("panda_hand").xpos.copy()
         xpos_d = xpos0
@@ -133,9 +143,14 @@ class Demo:
         
         initial_collision_flag = False
         
-        target_x = list(np.linspace(0.7, 0.43, 2000))
-        target_y = list(np.linspace(0, 0, 2000))
-        target_z = list(np.linspace(-0.8, 0.96, 2000))
+        x1, x2, x3 = 0.43, 0.7, 0.9
+        y1, y2, y3 = 0, 0, 1.2
+        z1, z2, z3 = 0.96, -0.8, -1
+        x1, x2, x3, y1, y2, y3, z1, z2, z3 = self.add_noise_to_hand_motion(data=[x1, x2, x3, y1, y2, y3, z1, z2, z3])
+        target_x = list(np.linspace(x2, x1, 2000))
+        target_y = list(np.linspace(y2, y1, 2000))
+        target_z = list(np.linspace(z2, z1, 2000))
+        
         while self.run:
             if len(target_x) == 0:
                 break
@@ -151,9 +166,9 @@ class Demo:
         
         
         
-        target_x = list(np.linspace(0.9, 0.7, 500))
-        target_y = list(np.linspace(1.2, 0, 500))
-        target_z = list(np.linspace(-1, -0.8, 500))
+        target_x = list(np.linspace(x3, x2, 500))
+        target_y = list(np.linspace(y3, y2, 500))
+        target_z = list(np.linspace(z3, z2, 500))
         while self.run:
             if len(target_x) == 0:
                 break
@@ -187,7 +202,7 @@ class Demo:
         
 
     def prepare_record(self, sample_name, init_pt, init_normal):
-        print("start record")
+        print(f"start record with initial point:  {init_pt}, {init_normal}")
         for obj_name in ["hand", "floor"]:
             fname = sample_name + f"_{obj_name}"
             with open(f"dataset/{fname}.csv", "w") as f:
