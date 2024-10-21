@@ -1,6 +1,7 @@
 *.png
 *.gif
 *.jpg
+*.txt
 
 dataset
 dataset/*
