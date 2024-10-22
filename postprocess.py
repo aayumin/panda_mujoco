@@ -18,8 +18,8 @@ def main():
             
             ## initial point
             first_line = f.readline()
-            init_pt = [float(v.strip()) for v in first_line.split(",")[:3]]
-            init_normal = [float(v.strip()) for v in first_line.split(",")[3:]]
+            init_pt = [round(float(v.strip()), 3) for v in first_line.split(",")[:3]]
+            init_normal = [round(float(v.strip()), 3) for v in first_line.split(",")[3:]]
             key_name = str(init_pt + init_normal)
             
             
@@ -46,7 +46,7 @@ def main():
         
         means = np.mean(np.array(contact_data_dict[k]), axis=0)  ## num, 6  => (6,)
         std = np.std(np.array(contact_data_dict[k]), axis=0)  ## num, 6  => (6,)
-        init_to_std_dict[k] = np.mean(std)
+        init_to_std_dict[k] = round(float(np.mean(std)), 5)
         
         
     ## save to file

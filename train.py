@@ -98,7 +98,6 @@ def load_data_from_txt(fpath):
         X_list.append(numbers[:-1]) 
         Y_list.append(numbers[-1])
     
-    
     X = np.array(X_list)  ## (len, 6)
     Y = np.expand_dims(np.array(Y_list), axis = -1) ## (len, 1)
     return X, Y
