@@ -5,6 +5,7 @@ import threading
 from threading import Thread
 
 from glob import glob
+import re
 import os
 os.environ["MUJOCO_GL"] = "glfw"  # or "osmesa" if needed
 
@@ -25,7 +26,7 @@ class Demo:
     fps = 60  # Rendering framerate.
 
     def __init__(self) -> None:
-        self.model = mujoco.MjModel.from_xml_path("world.xml")
+        self.model = mujoco.MjModel.from_xml_path("xml/world.xml")
         self.data = mujoco.MjData(self.model)
         self.cam = mujoco.MjvCamera()
         self.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
@@ -47,8 +48,13 @@ class Demo:
             self.id_to_body_name[b_idx] = self.model.body(b_idx).name
             self.name_to_body_id[self.model.body(b_idx).name] = b_idx
 
-    def initialize_q(self):
-        mujoco.mj_resetData(self.model, self.data)
+    def initialize_q(self, new_xml_name = None):
+        if new_xml_name is None:
+            self.model = mujoco.MjModel.from_xml_path("xml/world.xml")
+        else:
+            self.model = mujoco.MjModel.from_xml_path(new_xml_name)
+        self.data = mujoco.MjData(self.model)
+        # mujoco.mj_resetData(self.model, self.data)
         
         for i in range(1, 8):
             self.data.joint(f"panda_joint{i}").qpos = self.qpos0[i - 1]
@@ -116,7 +122,7 @@ class Demo:
         
         original_friction = cur_geom.friction
         noisy_friction = original_friction + np.random.normal(0, noise_std, size=original_friction.shape)
-        print(f"original_friction: {original_friction}, noisy_friction: {noisy_friction}")
+        # print(f"original_friction: {original_friction}, noisy_friction: {noisy_friction}")
         cur_geom.friction = noisy_friction
         
     def add_noise_to_hand_motion(self, data, noise_std = 0.2): ## data = [X, X, X, ...] : free length list
@@ -133,41 +139,54 @@ class Demo:
         
         return str(recent_num+1).zfill(4)
     
-    def quaternion_multiply(self, q1, q2):
-        w1, x1, y1, z1 = q1
-        w2, x2, y2, z2 = q2
-        return np.array([
-            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
-            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
-            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
-        ])
+        
+    def reload_xml_with_rotated_obj(self, obj_name, theta_rad, axis = "yaw"):
+        theta_rad_pi = round(theta_rad / np.pi, 3)
+        ## original xml
+        with open(f"xml/world.xml", "r") as f:
+            all_lines = f.readlines()
         
         
-    def rotate_target_obj(self, obj_name, theta_rad, axis = "yaw"):
-        current_quat = self.data.body(obj_name).xquat
-
-        # axis 방향으로 rotation 쿼터니언 계산
+        ## calculate quaternion
         if axis in ["yaw", "z"]:
-            rot = np.array([np.cos(theta_rad / 2), 0, 0, np.sin(theta_rad / 2)])  # Z축
+            quat = [np.cos(theta_rad / 2), 0, 0, np.sin(theta_rad / 2)]  # Z축
         elif axis in ["pitch", "y"]:
-            rot = np.array([np.cos(theta_rad / 2), 0, np.sin(theta_rad / 2), 0])  # Y축
+            quat = [np.cos(theta_rad / 2), 0, np.sin(theta_rad / 2), 0]  # Y축
         elif axis in ["roll", "x"]:
-            rot = np.array([np.cos(theta_rad / 2), np.sin(theta_rad / 2), 0, 0])  # X축
+            quat = [np.cos(theta_rad / 2), np.sin(theta_rad / 2), 0, 0]  # X축
         else:
-            rot = np.array([1,0,0,0])
+            quat = [1,0,0,0]
+            
+        quat = " ".join([str(round(v,3)) for v in quat])
         
-    
-        new_quat = self.quaternion_multiply(current_quat, rot)
-        self.data.body(obj_name).xquat = new_quat
         
+        
+        ## modify
+        modified_lines = []
+        for line in all_lines:    
+            pattern = rf'body name="{obj_name}"'
+            match = re.search(pattern, line)
+            if match:
+                text_rotated_body = f'<body name="{obj_name}" pos="0.8 0.25 0.2" quat="{quat}">\n'  
+                modified_lines.append(text_rotated_body)
+            else:
+                modified_lines.append(line)
+                
+        
+        ## new xml
+        new_xml_name = f"xml/world_rot_{theta_rad_pi}.xml"
+        with open(new_xml_name, "w") as f:
+            for line in modified_lines:
+                f.write(line)
+
+        return new_xml_name
 
         
     def try_hit_once(self, sample_name, rotation, noises):
-        self.initialize_q()
         
-        ## apply rotation.    apply noises.
-        self.rotate_target_obj(rotation["target_obj_name"], rotation["angle"], rotation["axis"])        
+        new_xml_name = self.reload_xml_with_rotated_obj(rotation["target_obj_name"], rotation["angle"], rotation["axis"])        
+        self.initialize_q(new_xml_name)
+        
         if "friction" in noises.keys():
             for obj_name, std in noises["friction"]:
                 self.add_noise_to_friction(obj_name, std)
@@ -241,8 +260,9 @@ class Demo:
         
     def hit(self):
         
+        
         # num_angles = 40
-        num_angles = 2
+        num_angles = 4
         for i in range(num_angles):
             sample_name = self.pick_sample_name()
             theta = i * (2 * np.pi / num_angles)
