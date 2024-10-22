@@ -32,6 +32,8 @@ class Demo:
         self.cam.fixedcamid = 0
         self.scene = mujoco.MjvScene(self.model, maxgeom=10000)
         self.run = True
+        
+        ## 초기화
         # self.gripper(True)
         for i in range(1, 8):
             self.data.joint(f"panda_joint{i}").qpos = self.qpos0[i - 1]
@@ -45,6 +47,14 @@ class Demo:
             self.id_to_body_name[b_idx] = self.model.body(b_idx).name
             self.name_to_body_id[self.model.body(b_idx).name] = b_idx
 
+    def initialize_q(self):
+        mujoco.mj_resetData(self.model, self.data)
+        
+        for i in range(1, 8):
+            self.data.joint(f"panda_joint{i}").qpos = self.qpos0[i - 1]
+        mujoco.mj_forward(self.model, self.data)
+        
+        
     def gripper(self, open=True):
         self.data.actuator("pos_panda_finger_joint1").ctrl = (0.04, 0)[not open]
         self.data.actuator("pos_panda_finger_joint2").ctrl = (0.04, 0)[not open]
@@ -122,31 +132,62 @@ class Demo:
         recent_num = int(sorted(files)[-1].split("\\")[-1].split(".")[0].split("_")[0])
         
         return str(recent_num+1).zfill(4)
+    
+    def quaternion_multiply(self, q1, q2):
+        w1, x1, y1, z1 = q1
+        w2, x2, y2, z2 = q2
+        return np.array([
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+        ])
         
- 
-    def hit(self):
+        
+    def rotate_target_obj(self, obj_name, theta_rad, axis = "yaw"):
+        current_quat = self.data.body(obj_name).xquat
+
+        # axis 방향으로 rotation 쿼터니언 계산
+        if axis in ["yaw", "z"]:
+            rot = np.array([np.cos(theta_rad / 2), 0, 0, np.sin(theta_rad / 2)])  # Z축
+        elif axis in ["pitch", "y"]:
+            rot = np.array([np.cos(theta_rad / 2), 0, np.sin(theta_rad / 2), 0])  # Y축
+        elif axis in ["roll", "x"]:
+            rot = np.array([np.cos(theta_rad / 2), np.sin(theta_rad / 2), 0, 0])  # X축
+        else:
+            rot = np.array([1,0,0,0])
+        
+    
+        new_quat = self.quaternion_multiply(current_quat, rot)
+        self.data.body(obj_name).xquat = new_quat
+        
+
+        
+    def try_hit_once(self, sample_name, rotation, noises):
+        self.initialize_q()
+        
+        ## apply rotation.    apply noises.
+        self.rotate_target_obj(rotation["target_obj_name"], rotation["angle"], rotation["axis"])        
+        if "friction" in noises.keys():
+            for obj_name, std in noises["friction"]:
+                self.add_noise_to_friction(obj_name, std)
+                
+        ####################
+        ## control robot  ##
+        ####################
         
         
-        sample_name = self.pick_sample_name()
-        # self.add_noise_to_friction("cup")
-        self.add_noise_to_friction("cup", 0.5)
-        
-        
+        ## phase 1
         xpos0 = self.data.body("panda_hand").xpos.copy()
         xpos_d = xpos0
         xquat0 = self.data.body("panda_hand").xquat.copy()
-        # self.gripper(False)
-        
-        # input("press any key")
-        # global start_flag
-        # start_flag = True
         
         initial_collision_flag = False
         
         x1, x2, x3 = 0.43, 0.7, 0.9
         y1, y2, y3 = 0, 0, 1.2
         z1, z2, z3 = 0.96, -0.8, -1
-        x1, x2, x3, y1, y2, y3, z1, z2, z3 = self.add_noise_to_hand_motion(data=[x1, x2, x3, y1, y2, y3, z1, z2, z3])
+        # x1, x2, x3, y1, y2, y3, z1, z2, z3 = self.add_noise_to_hand_motion(data=[x1, x2, x3, y1, y2, y3, z1, z2, z3])
         target_x = list(np.linspace(x2, x1, 2000))
         target_y = list(np.linspace(y2, y1, 2000))
         target_z = list(np.linspace(z2, z1, 2000))
@@ -157,7 +198,6 @@ class Demo:
             xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            # self.check_collision(self.data, "cup", "floor")
             result = self.check_collision(self.data, "cup", "panda_hand")
             if result is not None:
                 initial_collision_flag = True
@@ -165,7 +205,7 @@ class Demo:
                 
         
         
-        
+        ## phase 2
         target_x = list(np.linspace(x3, x2, 500))
         target_y = list(np.linspace(y3, y2, 500))
         target_z = list(np.linspace(z3, z2, 500))
@@ -175,8 +215,6 @@ class Demo:
             xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            
-            
             
             
             result = self.check_collision(self.data, "cup", "panda_hand")
@@ -190,15 +228,31 @@ class Demo:
             result = self.check_collision(self.data, "cup", "floor")
             if initial_collision_flag and result is not None:
                 self.record_contact_point(sample_name, "floor", result[0], result[1])
-                
             
             # time.sleep(1e-6)
-            
+        
+        
+        ## phase 3
         for _ in range(1000):
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
             # result = self.check_collision(self.data, "cup", "floor")
             # if result is not None: break
+        
+    def hit(self):
+        
+        # num_angles = 40
+        num_angles = 2
+        for i in range(num_angles):
+            sample_name = self.pick_sample_name()
+            theta = i * (2 * np.pi / num_angles)
+            print(f"theta: {theta}")
+            rotation = {"target_obj_name": "cup", "axis":"yaw", "angle": theta}
+            noises = {"friction": [("cup", 0.1)]}
+            
+            self.try_hit_once(sample_name, rotation, noises)
+            
+        
         
 
     def prepare_record(self, sample_name, init_pt, init_normal):
@@ -214,32 +268,8 @@ class Demo:
         
     # def check_hit_point(self, sample_name, obj_name, contact_pt, contact_normal):
     def record_contact_point(self, sample_name, obj_name, contact_pt, contact_normal):
-        # input("press any key")
         
-        # max_iter = 1e8
-        # while max_iter:
-        #     max_iter -= 1
-        #     result = self.check_collision(self.data, "cup", "panda_hand")
-        #     if result is not None: break
-        
-        # if result is None: return
-        
-        fname = sample_name + f"_{obj_name}"
-        # contacts_with_hand = []
-        # contacts_with_floor = []
-        
-        
-        # sample_len = 100000 
-        # for _ in range(sample_len):
-        #     mujoco.mj_step(self.model, self.data)
-        #     result1 = self.check_collision(self.data, "cup", "panda_hand")
-        #     result2 = self.check_collision(self.data, "cup", "floor")
-        #     if result1 is not None: contacts_with_hand.append(result1)
-        #     if result2 is not None: contacts_with_floor.append(result1)
-            
-            
-        
-        # print(f"len_hand: {len(contacts_with_hand)}, len_floor: {len(contacts_with_floor)}")
+        fname = sample_name + f"_{obj_name}"    
         with open(f"dataset/{fname}.csv", "a") as f:
             f.write(",".join(map(str, contact_pt)))
             f.write(",")
@@ -281,11 +311,7 @@ class Demo:
     def start(self) -> None:
         step_thread = Thread(target=self.hit)
         step_thread.start()
-        
-        
-        # check_thread = Thread(target=self.check_hit_point)
-        # check_thread.start()
-        
+                
         self.render()
         
         
