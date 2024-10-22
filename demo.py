@@ -228,7 +228,8 @@ class Demo:
             pattern = rf'body name="{obj_name}"'
             match = re.search(pattern, line)
             if match:
-                text_rotated_body = f'<body name="{obj_name}" pos="0.8 0.25 0.2" quat="{quat}">\n'  
+                pos_values = re.search(r'pos="([^"]+)"', line).group(1)
+                text_rotated_body = f'<body name="{obj_name}" pos="{pos_values}" quat="{quat}">\n'  
                 modified_lines.append(text_rotated_body)
             else:
                 modified_lines.append(line)
@@ -329,8 +330,8 @@ class Demo:
     def hit(self):
         
         
-        num_angles = 12
-        # num_angles = 4
+        # num_angles = 12
+        num_angles = 2
         
         for i in tqdm(range(num_angles)):
             sample_name = self.pick_sample_name()
