@@ -144,8 +144,8 @@ class Demo:
                 ctt_obj_1 = self.data.geom(ctt.geom1).name
                 ctt_obj_2 = self.data.geom(ctt.geom2).name
                 
-                contact_pt = [round(v,2) for v in ctt.pos]
-                contact_normal = [round(v,2) for v in ctt.frame[:3]]
+                contact_pt = [round(v,3) for v in ctt.pos]
+                contact_normal = [round(v,3) for v in ctt.frame[:3]]
                 
                 if obj_name1 is not None and obj_name2 is None and obj_name1 in [ctt_obj_1, ctt_obj_2]:
                     # print(f"\t\tcontact => ({ctt_obj_1}, {ctt_obj_2})  : ", contact_pt, contact_normal)
