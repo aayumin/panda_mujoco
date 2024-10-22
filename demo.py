@@ -94,15 +94,54 @@ class Demo:
                 J[:, dofadr].T @ np.diag(2 * np.sqrt(self.K)) @ v
             )
     
-      
-    def check_collision(self, data, obj_name1 = None, obj_name2 = None):
+    def quaternion_to_rotation_matrix(self, quat):
+        w, x, y, z = quat
+        return np.array([
+            [1 - 2 * (y**2 + z**2), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+            [2 * (x * y + w * z), 1 - 2 * (x**2 + z**2), 2 * (y * z - w * x)],
+            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x**2 + y**2)]
+        ])
+
+    # def calculate_body_frame(self, pos, quat):
+    #     rotation_matrix = self.quaternion_to_rotation_matrix(quat)
+
+    #     roll = rotation_matrix[:, 0]  # X축
+    #     pitch = rotation_matrix[:, 1]  # Y축
+    #     yaw = rotation_matrix[:, 2]    # Z축
+
+    #     return pos, roll, pitch, yaw 
+
+
+    
+    def check_collision_about_ref_obj(self, obj_name1 = None, obj_name2 = None, ref_obj_name="cup"):
+        
+        ## reference
+        ref_center = self.data.body(ref_obj_name).xpos
+        ref_quat = self.data.body(ref_obj_name).xquat
+        ref_SO3 = self.quaternion_to_rotation_matrix(ref_quat)
+        # ref_center, roll, pitch, yaw = self.calculate_body_frame(ref_center, ref_quat)
+        
+        
+        ## collision check
+        result = self.check_collision(obj_name1, obj_name2)
+        if result is None: return None
+        pt, vec = result
+        
+        ## calculate
+        new_pt = ref_SO3 @ (pt - ref_center)
+        new_vec = ref_SO3 @ vec
+        return new_pt, new_vec
+            
+            
+            
+    def check_collision(self, obj_name1 = None, obj_name2 = None):
         with lock:
-            num_contacts = data.ncon
+            num_contacts = self.data.ncon
             # print(f"\nTime: {round(data.time, 3)}, # of contacts: {data.ncon}")
             for i in range(num_contacts):
-                ctt = data.contact[i]
-                ctt_obj_1 = data.geom(ctt.geom1).name
-                ctt_obj_2 = data.geom(ctt.geom2).name
+                ctt = self.data.contact[i]
+                ctt_obj_1 = self.data.geom(ctt.geom1).name
+                ctt_obj_2 = self.data.geom(ctt.geom2).name
                 
                 contact_pt = [round(v,2) for v in ctt.pos]
                 contact_normal = [round(v,2) for v in ctt.frame[:3]]
@@ -116,6 +155,8 @@ class Demo:
                     return contact_pt, contact_normal
                 
             return None
+        
+        
 
     def add_noise_to_friction(self, body_name, noise_std=0.1):
         cur_geom = self.model.geom(body_name)
@@ -130,12 +171,31 @@ class Demo:
         noisy_data = data_arr + np.random.normal(0, noise_std, size=data_arr.shape)
         return noisy_data.tolist()
         
-        
-        
+    
+    def quaternion_multiply(self, q1, q2):
+        w1, x1, y1, z1 = q1
+        w2, x2, y2, z2 = q2
+        return np.array([
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+        ])
+
+    def quaternion_conjugate(self, quat):
+        return np.array([quat[0], -quat[1], -quat[2], -quat[3]])
+
+    def rotate_vector(self, quat, vec):
+        q_vec = np.array([0] + vec.tolist()) 
+        return self.quaternion_multiply(self.quaternion_multiply(quat, q_vec), self.quaternion_conjugate(quat))[1:]
+
         
     def pick_sample_name(self):
         files = os.listdir("./dataset")
-        recent_num = int(sorted(files)[-1].split("\\")[-1].split(".")[0].split("_")[0])
+        if len(files) == 0:
+            recent_num = 0
+        else:
+            recent_num = int(sorted(files)[-1].split("\\")[-1].split(".")[0].split("_")[0])
         
         return str(recent_num+1).zfill(4)
     
@@ -217,7 +277,9 @@ class Demo:
             xpos_d = xpos0 + [target_x.pop(), target_y.pop(), target_z.pop()]
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            result = self.check_collision(self.data, "cup", "panda_hand")
+            # result = self.check_collision("cup", "panda_hand")
+            result = self.check_collision_about_ref_obj("cup", "panda_hand", ref_obj_name="cup")
+            
             if result is not None:
                 initial_collision_flag = True
                 self.prepare_record(sample_name, result[0], result[1])
@@ -236,7 +298,8 @@ class Demo:
             mujoco.mj_step(self.model, self.data)
             
             
-            result = self.check_collision(self.data, "cup", "panda_hand")
+            # result = self.check_collision("cup", "panda_hand")
+            result = self.check_collision_about_ref_obj("cup", "panda_hand", ref_obj_name="cup")
             if initial_collision_flag == False and result is not None:
                 initial_collision_flag = True
                 self.prepare_record(sample_name, result[0], result[1])
@@ -244,7 +307,8 @@ class Demo:
                 self.record_contact_point(sample_name, "hand", result[0], result[1])
             
             
-            result = self.check_collision(self.data, "cup", "floor")
+            # result = self.check_collision("cup", "floor")
+            result = self.check_collision_about_ref_obj("cup", "floor", ref_obj_name="cup")
             if initial_collision_flag and result is not None:
                 self.record_contact_point(sample_name, "floor", result[0], result[1])
             
@@ -255,14 +319,15 @@ class Demo:
         for _ in range(1000):
             self.control(xpos_d, xquat0)
             mujoco.mj_step(self.model, self.data)
-            # result = self.check_collision(self.data, "cup", "floor")
+            # result = self.check_collision("cup", "floor")
+            # result = self.check_collision_about_ref_obj("cup", "floor", ref_obj_name="cup")
             # if result is not None: break
         
     def hit(self):
         
         
-        # num_angles = 40
-        num_angles = 4
+        num_angles = 40
+        # num_angles = 4
         for i in range(num_angles):
             sample_name = self.pick_sample_name()
             theta = i * (2 * np.pi / num_angles)
