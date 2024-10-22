@@ -5,6 +5,7 @@ import threading
 from threading import Thread
 
 from glob import glob
+from tqdm import tqdm
 import re
 import os
 os.environ["MUJOCO_GL"] = "glfw"  # or "osmesa" if needed
@@ -264,7 +265,7 @@ class Demo:
         initial_collision_flag = False
         
         x1, x2, x3 = 0.43, 0.7, 0.9
-        y1, y2, y3 = 0, 0, 1.2
+        y1, y2, y3 = 0, 0, 1.8
         z1, z2, z3 = 0.96, -0.8, -1
         # x1, x2, x3, y1, y2, y3, z1, z2, z3 = self.add_noise_to_hand_motion(data=[x1, x2, x3, y1, y2, y3, z1, z2, z3])
         target_x = list(np.linspace(x2, x1, 2000))
@@ -323,25 +324,27 @@ class Demo:
             # result = self.check_collision_about_ref_obj("cup", "floor", ref_obj_name="cup")
             # if result is not None: break
         
+        if os.path.exists(new_xml_name): os.remove(new_xml_name)
+        
     def hit(self):
         
         
-        num_angles = 40
+        num_angles = 12
         # num_angles = 4
-        for i in range(num_angles):
+        
+        for i in tqdm(range(num_angles)):
             sample_name = self.pick_sample_name()
             theta = i * (2 * np.pi / num_angles)
-            print(f"theta: {theta}")
+            # print(f"theta: {theta}")
             rotation = {"target_obj_name": "cup", "axis":"yaw", "angle": theta}
             noises = {"friction": [("cup", 0.1)]}
             
             self.try_hit_once(sample_name, rotation, noises)
-            
         
         
 
     def prepare_record(self, sample_name, init_pt, init_normal):
-        print(f"start record with initial point:  {init_pt}, {init_normal}")
+        # print(f"start record with initial point:  {init_pt}, {init_normal}")
         for obj_name in ["hand", "floor"]:
             fname = sample_name + f"_{obj_name}"
             with open(f"dataset/{fname}.csv", "w") as f:
@@ -394,6 +397,7 @@ class Demo:
         glfw.terminate()
 
     def start(self) -> None:
+        
         step_thread = Thread(target=self.hit)
         step_thread.start()
                 
