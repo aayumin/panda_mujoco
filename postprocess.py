@@ -1,5 +1,6 @@
 import os
 from glob import glob
+from tqdm import tqdm
 
 import numpy as np
 
@@ -10,7 +11,7 @@ def main():
     
     ## collect data
     files = os.listdir("./dataset")
-    for fname in files:
+    for fname in tqdm(files):
         fpath = os.path.join("./dataset", fname)
         
         with open(fpath, "r") as f:
@@ -40,12 +41,12 @@ def main():
     init_to_std_dict = {}
     for k in contact_data_dict.keys():
         temp = np.array(contact_data_dict[k])
-        print(k, temp.shape, temp.dtype)  ## (len, 6)
+        # print(k, temp.shape, temp.dtype)  ## (len, 6)
         
         
-        means = np.mean(np.array(contact_data_dict[k]), axis=0)  ## num, 6
-        std = np.mean(means)
-        init_to_std_dict[k] = std
+        means = np.mean(np.array(contact_data_dict[k]), axis=0)  ## num, 6  => (6,)
+        std = np.std(np.array(contact_data_dict[k]), axis=0)  ## num, 6  => (6,)
+        init_to_std_dict[k] = np.mean(std)
         
         
     ## save to file
