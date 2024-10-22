@@ -16,13 +16,9 @@
     <material name="plane" reflectance="0.3" texture="plane" texrepeat="1 1" texuniform="true" />
   </asset>
   <include file="panda.xml" />
-  <!-- <include file="obj.xml" /> -->
-  <worldbody>
-    <!-- <body name="cup"  pos="0.8 0.25 0.1" >
-      <geom type="box" size=".05 .05 .05" contype="1" density="100" condim="3" />
-      <joint type="free" />
-    </body> -->
+  
 
+  <worldbody>
 
         <light directional="false" diffuse=".2 .2 .2" specular="0 0 0" pos="0 0 5" dir="0 0 -1" castshadow="false"/>
         <light mode="targetbodycom" target="cup" directional="false" diffuse=".8 .8 .8" specular="0.3 0.3 0.3" pos="0 0 4.0" dir="0 0 -1"/>
@@ -32,12 +28,15 @@
           <geom name="table" type="box" size="0.9 0.55 0.03" rgba="0.5 0.5 0.5 1" contype="0"/>
         </body>  
 
-        <body name="cup" pos="0.8 0.25 0.2">
+        
+<body name="cup" pos="0.8 0.25 0.2" quat="0.707 0 0 0.707">
             <freejoint name="cup_root"/>
             <geom name="cup" type="cylinder" size="0.06 0.14" rgba="0.9 0.1 0.1 1"/>
             <!-- <body name="handle" pos=".04 0.04 0" quat="0.5 0.0 0 0.5" > -->
             <body name="handle" pos="0.02 -0.04 0" quat="0.5 0.0 0 0.5" >
-                <geom name="handle" type="box"  size="0.02 0.02 0.02" rgba="0.9 0.1 0.1 1"/>
+                <!-- <geom name="handle" type="box"  size="0.02 0.02 0.02" rgba="0.9 0.1 0.1 1"/> -->
+                <!-- <body name="handle" pos="0.2 -0.2 0" quat="0.5 0.0 0 0.5" > -->
+                <geom name="handle" type="box"  size="0.02 0.02 0.02" rgba="0.3 0.7 0.1 1"/>
             </body>
         </body>
 
